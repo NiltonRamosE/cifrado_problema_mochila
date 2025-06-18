@@ -1,152 +1,133 @@
 from flask import Flask, render_template, request, jsonify
+import json
 import random
 import math
+from utils import generate_keys, encrypt_message, decrypt_message
 
 app = Flask(__name__)
 
-# Funciones base del algoritmo
-def es_superincremental(seq):
-    suma = 0
-    for n in seq:
-        if n <= suma:
-            return False
-        suma += n
-    return True
-
-def inverso_modular(a, m):
-    for x in range(1, m):
-        if (a * x) % m == 1:
-            return x
-    return None
-
-def generar_clave_superincr(w=None, m=None, r=None):
-    if w is None:
-        w = [2, 3, 7, 14, 30, 57, 120, 251]
-    if m is None:
-        m = 491  # mayor que suma(w)
-    if r is None:
-        r = 41  # coprimo con m
-    
-    if not es_superincremental(w):
-        return None, None, None, None, "La secuencia w no es superincremental"
-    
-    if math.gcd(r, m) != 1:
-        return None, None, None, None, "r y m deben ser coprimos"
-    
-    suma_w = sum(w)
-    if m <= suma_w:
-        return None, None, None, None, f"m debe ser mayor que la suma de w ({suma_w})"
-    
-    b = [(wi * r) % m for wi in w]
-    return w, m, r, b, None
-
-def cifrar_mochila(msg_bin, b):
-    if len(msg_bin) != len(b):
-        return None, "La longitud del mensaje debe coincidir con la longitud de la clave pública"
-    try:
-        return sum([int(bit) * b[i] for i, bit in enumerate(msg_bin)]), None
-    except:
-        return None, "El mensaje debe contener solo bits (0 y 1)"
-
-def descifrar_mochila(c, w, m, r):
-    r_inv = inverso_modular(r, m)
-    if r_inv is None:
-        return None, "No existe inverso modular para r y m dados"
-    
-    c_ajustado = (c * r_inv) % m
-    solucion = []
-    for wi in reversed(w):
-        if wi <= c_ajustado:
-            solucion.insert(0, '1')
-            c_ajustado -= wi
-        else:
-            solucion.insert(0, '0')
-    return ''.join(solucion), None
-
-def agregar_ruido(bits, longitud=2):
-    ruido = ''.join(str(random.randint(0, 1)) for _ in range(longitud))
-    return ruido + bits
-
-def quitar_ruido(bits, longitud=2):
-    return bits[longitud:]
-
-# Rutas de la aplicación
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/generar_claves', methods=['POST'])
-def generar_claves():
-    try:
-        w_input = request.json.get('w')
-        m_input = request.json.get('m')
-        r_input = request.json.get('r')
-        
-        w = None
-        if w_input:
-            w = [int(x.strip()) for x in w_input.split(',') if x.strip()]
-        
-        m = int(m_input) if m_input and m_input.isdigit() else None
-        r = int(r_input) if r_input and r_input.isdigit() else None
-        
-        w, m, r, b, error = generar_clave_superincr(w, m, r)
-        if error:
-            return jsonify({'error': error})
-        
-        return jsonify({
-            'w': w,
-            'm': m,
-            'r': r,
-            'b': b,
-            'es_superincremental': es_superincremental(w)
+@app.route('/convert-text', methods=['POST'])
+def convert_text():
+    text = request.form.get('text', '')
+    result = []
+    
+    for char in text:
+        ascii_val = ord(char.upper())
+        binary = format(ascii_val, '08b')
+        result.append({
+            'letter': char.upper(),
+            'ascii': ascii_val,
+            'binary': binary
         })
-    except Exception as e:
-        return jsonify({'error': f"Error al generar claves: {str(e)}"})
+    
+    return jsonify(result)
 
-@app.route('/cifrar', methods=['POST'])
-def cifrar():
+@app.route('/generate-keys', methods=['POST'])
+def generate_keys_route():
     try:
-        data = request.json
-        mensaje = data['mensaje']
-        b = data['b']
-        usar_ruido = data.get('usar_ruido', False)
+        weights = [int(x) for x in request.form.get('weights', '').split(',')]
+        M = int(request.form.get('M', 0))
+        R = int(request.form.get('R', 0))
         
-        if usar_ruido:
-            mensaje = agregar_ruido(mensaje)
+        # Validar que los pesos sean superincrementales
+        for i in range(1, len(weights)):
+            if weights[i] <= sum(weights[:i]):
+                return jsonify({'error': 'Los pesos no son superincrementales'}), 400
         
-        cifrado, error = cifrar_mochila(mensaje, b)
-        if error:
-            return jsonify({'error': error})
+        # Validar que M > suma de pesos
+        if M <= sum(weights):
+            return jsonify({'error': 'M debe ser mayor que la suma de los pesos'}), 400
+        
+        # Validar que R y M sean coprimos
+        if math.gcd(R, M) != 1:
+            return jsonify({'error': 'R y M deben ser coprimos'}), 400
+        
+        public_key = [(w * R) % M for w in weights]
         
         return jsonify({
-            'cifrado': cifrado,
-            'mensaje_con_ruido': mensaje if usar_ruido else None
+            'public_key': public_key,
+            'weights': weights,
+            'M': M,
+            'R': R
         })
     except Exception as e:
-        return jsonify({'error': f"Error al cifrar: {str(e)}"})
+        return jsonify({'error': str(e)}), 400
 
-@app.route('/descifrar', methods=['POST'])
-def descifrar():
+@app.route('/encrypt', methods=['POST'])
+def encrypt():
+    data = request.get_json()
+    text = data.get('text', '')
+    public_key = data.get('public_key', [])
+    
+    encrypted = []
+    for char in text.upper():
+        binary = format(ord(char), '08b')
+        encrypted_val = 0
+        for i, bit in enumerate(binary):
+            if bit == '1' and i < len(public_key):
+                encrypted_val += public_key[i]
+        encrypted.append({
+            'letter': char,
+            'binary': binary,
+            'encrypted': encrypted_val
+        })
+    
+    return jsonify(encrypted)
+
+@app.route('/decrypt', methods=['POST'])
+def decrypt():
+    data = request.get_json()
+    encrypted_numbers = data.get('encrypted_numbers', [])
+    weights = data.get('weights', [])
+    M = data.get('M', 0)
+    R = data.get('R', 0)
+    
     try:
-        data = request.json
-        cifrado = data['cifrado']
-        w = data['w']
-        m = data['m']
-        r = data['r']
-        tiene_ruido = data.get('tiene_ruido', False)
+        if not all([encrypted_numbers, weights, M, R]):
+            return jsonify({'error': 'Faltan parámetros necesarios'}), 400
         
-        descifrado, error = descifrar_mochila(cifrado, w, m, r)
-        if error:
-            return jsonify({'error': error})
+        # Calcular R^-1 mod M
+        R_inv = pow(R, -1, M)
+        decrypted_text = []
+        steps = []
         
-        if tiene_ruido:
-            descifrado = quitar_ruido(descifrado)
+        for num in encrypted_numbers:
+            S = (num * R_inv) % M
+            binary = ''
+            
+            # Resolver el problema de la mochila
+            remaining = S
+            bits = []
+            for w in reversed(weights):
+                if w <= remaining:
+                    bits.append('1')
+                    remaining -= w
+                else:
+                    bits.append('0')
+            
+            # Los bits están en orden inverso
+            binary = ''.join(reversed(bits))
+            
+            # Convertir binario a ASCII
+            ascii_val = int(binary, 2)
+            char = chr(ascii_val)
+            decrypted_text.append(char)
+            steps.append(char)
         
         return jsonify({
-            'descifrado': descifrado
+            'decrypted_text': ''.join(decrypted_text),
+            'steps': steps  # Asegúrate de incluir los pasos
         })
     except Exception as e:
-        return jsonify({'error': f"Error al descifrar: {str(e)}"})
+        return jsonify({
+            'error': str(e),
+            'decrypted_text': '',
+            'steps': []
+        }), 400
 
 if __name__ == '__main__':
     app.run(debug=True)

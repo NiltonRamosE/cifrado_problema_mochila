@@ -1,102 +1,164 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cifrado con Mochila Superincremental</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Cifrado con Mochila Superincremental</h1>
-        
-        <div class="section">
-            <h2>Generación de Claves</h2>
-            <div class="form-group">
-                <label for="w">Secuencia superincremental w (separada por comas):</label>
-                <input type="text" id="w" placeholder="2, 3, 7, 14, 30, 57, 120, 251" value="2, 3, 7, 14, 30, 57, 120, 251">
-            </div>
-            <div class="form-group">
-                <label for="m">Módulo m (mayor que suma de w):</label>
-                <input type="number" id="m" placeholder="491" value="491">
-            </div>
-            <div class="form-group">
-                <label for="r">Clave r (coprimo con m):</label>
-                <input type="number" id="r" placeholder="41" value="41">
-            </div>
-            <button id="generar-claves">Generar Claves</button>
-            
-            <div id="claves-resultado" class="resultado">
-                <h3>Claves Generadas</h3>
-                <p><strong>Clave privada w:</strong> <span id="clave-w"></span></p>
-                <p><strong>Módulo m:</strong> <span id="clave-m"></span></p>
-                <p><strong>Clave r:</strong> <span id="clave-r"></span></p>
-                <p><strong>Clave pública b:</strong> <span id="clave-b"></span></p>
-                <p><strong>¿Es superincremental?:</strong> <span id="es-superincremental"></span></p>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>Cifrado</h2>
-            <div class="form-group">
-                <label for="mensaje">Mensaje binario (8 bits):</label>
-                <input type="text" id="mensaje" placeholder="Ej: 10100101" maxlength="8">
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="usar-ruido"> Agregar ruido aleatorio (2 bits al inicio)
-                </label>
-            </div>
-            <button id="cifrar">Cifrar Mensaje</button>
-            
-            <div id="cifrado-resultado" class="resultado">
-                <h3>Resultado de Cifrado</h3>
-                <p><strong>Mensaje original:</strong> <span id="mensaje-original"></span></p>
-                <p><strong>Mensaje con ruido (si aplica):</strong> <span id="mensaje-ruido"></span></p>
-                <p><strong>Mensaje cifrado:</strong> <span id="mensaje-cifrado"></span></p>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>Descifrado</h2>
-            <div class="form-group">
-                <label for="cifrado">Mensaje cifrado:</label>
-                <input type="number" id="cifrado">
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="tiene-ruido"> El mensaje tiene ruido (eliminar primeros 2 bits)
-                </label>
-            </div>
-            <button id="descifrar">Descifrar Mensaje</button>
-            
-            <div id="descifrado-resultado" class="resultado">
-                <h3>Resultado de Descifrado</h3>
-                <p><strong>Mensaje descifrado:</strong> <span id="mensaje-descifrado"></span></p>
-            </div>
-        </div>
-        
-        <div class="section explicacion">
-            <h2>Explicación del Algoritmo</h2>
-            <h3>Generación de Claves Públicas</h3>
-            <ol>
-                <li>Se elige una secuencia superincremental <strong>w</strong> (cada elemento mayor que la suma de los anteriores).</li>
-                <li>Se selecciona un módulo <strong>m</strong> mayor que la suma de todos los elementos de w.</li>
-                <li>Se elige un número <strong>r</strong> coprimo con m (sin factores comunes).</li>
-                <li>La clave pública <strong>b</strong> se calcula como b[i] = (w[i] * r) % m para cada elemento de w.</li>
-            </ol>
-            
-            <h3>¿Por qué es difícil romper el cifrado?</h3>
-            <p>Sin la clave privada (w, m, r):</p>
-            <ul>
-                <li>La clave pública b no es superincremental (debido a la multiplicación modular con r).</li>
-                <li>Resolver el problema de la mochila con secuencias no superincrementales es NP-completo.</li>
-                <li>No hay forma eficiente de encontrar la combinación de elementos de b que sumen al valor cifrado.</li>
-                <li>Para recuperar el mensaje original se necesita el inverso modular de r, que solo se puede calcular conociendo r y m.</li>
-            </ul>
-        </div>
-    </div>
+{% extends "base.html" %}
 
-    <script src="/static/script.js"></script>
-</body>
-</html>
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="text-center mb-4">Cifrado de Mochila Superincremental</h1>
+        
+        <!-- Sección 1: Entrada de Texto y Conversión -->
+        <section id="section1" class="mb-5">
+            <h2>1. Entrada de Texto y Conversión</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="inputText" class="form-label">Ingrese el texto:</label>
+                        <textarea class="form-control" id="inputText" rows="3"></textarea>
+                    </div>
+                    <button id="convertBtn" class="btn btn-primary">Convertir</button>
+                    <div id="conversionResult" class="mt-3">
+                        <table class="table table-bordered table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Letra</th>
+                                    <th>ASCII</th>
+                                    <th>Binario (8 bits)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="conversionTableBody">
+                                <!-- Aquí se llenará dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Sección 2: Generación de Claves -->
+        <section id="section2" class="mb-5">
+            <h2>2. Generación de Claves</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Clave Privada</h4>
+                            <div class="mb-3">
+                                <label for="weightsInput" class="form-label">Pesos superincrementales W (separados por comas):</label>
+                                <input type="text" class="form-control" id="weightsInput" placeholder="Ej: 2, 3, 7, 15, 31, 62, 125, 251">
+                                <small class="text-muted">Debe ser una secuencia superincremental</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="MInput" class="form-label">M (mayor que la suma de W):</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="MInput">
+                                    <button class="btn btn-outline-secondary" id="generateM">Generar</button>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="RInput" class="form-label">R (coprimo con M):</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="RInput">
+                                    <button class="btn btn-outline-secondary" id="generateR">Generar</button>
+                                </div>
+                            </div>
+                            <button id="generateKeysBtn" class="btn btn-primary">Generar Clave Pública</button>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Clave Pública</h4>
+                            <div id="publicKeyResult" class="mt-3">
+                                <p>B<sub>i</sub> = (W<sub>i</sub> * R) mod M</p>
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>i</th>
+                                            <th>W<sub>i</sub></th>
+                                            <th>B<sub>i</sub></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="publicKeyTableBody">
+                                        <!-- Aquí se llenará dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Sección 3: Cifrado -->
+        <section id="section3" class="mb-5">
+            <h2>3. Cifrado</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Texto a cifrar:</label>
+                        <p id="textToEncrypt" class="form-control-plaintext"></p>
+                    </div>
+                    <button id="encryptBtn" class="btn btn-primary">Cifrar</button>
+                    <div id="encryptionResult" class="mt-3">
+                        <table class="table table-bordered table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Letra</th>
+                                    <th>Binario</th>
+                                    <th>Valor Cifrado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="encryptionTableBody">
+                                <!-- Aquí se llenará dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Sección 4: Descifrado -->
+        <section id="section4">
+            <h2>4. Descifrado</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Ingresar Números Cifrados</h4>
+                            <div class="input-group mb-3">
+                                <input type="number" class="form-control" id="encryptedNumberInput" placeholder="Número cifrado">
+                                <button class="btn btn-primary" id="addEncryptedNumber">Agregar</button>
+                            </div>
+                            <div class="mb-3">
+                                <button id="clearDecryptionBtn" class="btn btn-danger">Limpiar Todo</button>
+                                <button id="finishDecryptionBtn" class="btn btn-success">Finalizar Mensaje</button>
+                            </div>
+                            <div id="decryptedNumbersList" class="mb-3">
+                                <h5>Números ingresados:</h5>
+                                <ul id="encryptedNumbersUl" class="list-group">
+                                    <!-- Aquí se llenará dinámicamente -->
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Resultado del Descifrado</h4>
+                            <div id="decryptionResult">
+                                <p class="lead">Mensaje descifrado: <span id="decryptedMessage" class="fw-bold"></span></p>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Número Cifrado</th>
+                                                <th>Letra Descifrada</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="decryptionTableBody">
+                                            <!-- Aquí se llenará dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
